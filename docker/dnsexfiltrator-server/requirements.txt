@@ -1,0 +1,2 @@
+dnslib==0.9.26
+tldextract
