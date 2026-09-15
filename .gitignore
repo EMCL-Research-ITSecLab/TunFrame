@@ -12,6 +12,7 @@ experiments/
 exfiltration_data/
 allowlists/*
 config.yaml
+*data*
 
 
 # Byte-compiled / optimized / DLL files
