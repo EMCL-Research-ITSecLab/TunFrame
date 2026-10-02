@@ -1,2 +1,6 @@
 pandas
 joblib
+Levenshtein
+jellyfish
+mmh3
+scikit-learn
