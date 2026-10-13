@@ -26,32 +26,30 @@ RESULTS_DIR = PROJECT_ROOT / "results"
 DETECTOR_PATH = PROJECT_ROOT / "detection" / "detectors"
 LOGFILE = DOCKER_PATH / "dns-collector" / "logs" / "dnslogs.json"
 
-
-# === LOGGER SETUP (ganz am Anfang) ===
 class UnifiedOutputHandler(logging.Handler):
     def __init__(self):
         super().__init__()
         self.last_progress_length = 0
+        self._lock = threading.Lock()
         self.setFormatter(logging.Formatter('%(message)s'))
-    
+
     def emit(self, record):
         try:
             msg = self.format(record)
             is_progress = getattr(record, 'progress', False)
-            
-            if is_progress:
-                # Progress message - pad to at least the previous length to overwrite old text
-                padded_msg = msg.ljust(self.last_progress_length)
-                sys.stdout.write(f"\r{padded_msg}")
-                sys.stdout.flush()
-                self.last_progress_length = len(msg)
-            else:
-                # Regular message - clear progress line first if needed
-                if self.last_progress_length > 0:
-                    sys.stdout.write("\r" + " " * self.last_progress_length + "\r")
-                    self.last_progress_length = 0
-                sys.stdout.write(msg + "\n")
-                sys.stdout.flush()
+
+            with self._lock:
+                if is_progress:
+                    padded_msg = msg.ljust(self.last_progress_length)
+                    sys.stdout.write(f"\r{padded_msg}")
+                    sys.stdout.flush()
+                    self.last_progress_length = len(msg)
+                else:
+                    if self.last_progress_length > 0:
+                        sys.stdout.write("\r" + " " * self.last_progress_length + "\r")
+                        self.last_progress_length = 0
+                    sys.stdout.write(msg + "\n")
+                    sys.stdout.flush()
         except Exception:
             self.handleError(record)
 
@@ -137,6 +135,8 @@ def main():
     server_ip = cfg_safe_get(cfg, ['traffic', 'tunnel', 'tunnel_server_ip'], '192.168.4.4')
     public_resolver = cfg_safe_get(cfg, ['global', 'public_resolver'], '1.1.1.1')
     allowlist = cfg_safe_get(cfg, ['allowlist', 'global_allowlist_path'])
+    active_detectors = cfg_safe_get(cfg, ['detectors', 'active'], None)
+    
 
     if not peacetime_duration:
         peacetime_duration = 0
@@ -182,7 +182,7 @@ def main():
 
         t_detect = threading.Thread(
             target=evaluate,
-            args=(DETECTOR_PATH, str(LOGFILE), tunneling_domains, allowlist, str(results_file), cfg),
+            args=(DETECTOR_PATH, str(LOGFILE), tunneling_domains, allowlist, str(results_file), cfg, active_detectors),
         )
         t_detect.start()
 

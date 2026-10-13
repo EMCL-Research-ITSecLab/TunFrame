@@ -41,13 +41,16 @@ wartime_stop_event = threading.Event()
 peacetime_stop_event = threading.Event()
 peacetime_done = threading.Event()
 
-def load_detectors(detectors_path):
-    """Load all detector classes dynamically."""
+def load_detectors(detectors_path, active_detectors=None):
+    """Load detector classes dynamically, filtered by active_detectors list."""
     detectors = []
     for folder in os.listdir(detectors_path):
         folder_path = os.path.join(detectors_path, folder)
-        # Skip non-directories and __pycache__
         if not os.path.isdir(folder_path) or folder.startswith("__"):
+            continue
+        # Filter by active_detectors if provided
+        if active_detectors is not None and folder not in active_detectors:
+            logger.info(f"⊘ Skipping {folder} (not in active detectors)")
             continue
         detector_py_path = os.path.join(folder_path, "detector.py")
         if not os.path.isfile(detector_py_path):
@@ -56,7 +59,6 @@ def load_detectors(detectors_path):
         logger.info(f"✓ Loading: {folder}")
         try:
             module = importlib.import_module(f"detection.detectors.{folder}.detector")
-            # Find all classes defined in this module
             for name, obj in inspect.getmembers(module, inspect.isclass):
                 if obj.__module__ == module.__name__:
                     detectors.append(obj)
@@ -64,18 +66,17 @@ def load_detectors(detectors_path):
             logger.error(f"✗ Import error in {folder}: {e}")
     return detectors
 
-def evaluate(detector_path: str, logfile: str, tunneling_domains: list[str], allowlist_path: str, results_file: str, cfg: dict) -> dict:
+def evaluate(detector_path: str, logfile: str, tunneling_domains: list[str],
+             allowlist_path: str, results_file: str, cfg: dict,
+             active_detectors: list[str] = None) -> dict:
 
     ### INITILIZATION ###
-    
-    detector_classes = load_detectors(detector_path)
+    detector_classes = load_detectors(detector_path, active_detectors)
     detectors = [cls() for cls in detector_classes]
     logger.info(f"\n{len(detectors)} detectors loaded: {[type(d).__name__ for d in detectors]}\n")
-
     alldomains = set()
-    # Use longer timeout (10s) and more retries (6) to handle chunked writes
     # This allows up to 60 seconds of no data before considering file complete
-    log_generator = readjson(logfile, timeout_seconds=10, max_timeouts=6)
+    log_generator = readjson(logfile, timeout_seconds=30, max_timeouts=2)
 
     tunneling_domains = set(tunneling_domains)
 

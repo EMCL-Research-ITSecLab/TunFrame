@@ -119,6 +119,12 @@ All settings are defined in `config.yaml`. Parameters marked **required** must b
 | `global.description` | string | No | Description of the test run | `No description.` |
 | `global.public_resolver` | IP | **Yes** | IP of the public DNS resolver for non-tunneled queries | `1.1.1.1` |
 
+### Detector Settings
+
+| Parameter | Type | Required | Description | Default |
+|---|---|---|---|---|
+| `detector.names` | list[string] | **No** | List of detector names (must match directory names in `detection/detectors/`) | None |
+
 ### Timing Settings
 
 | Parameter | Type | Required | Description | Default |
