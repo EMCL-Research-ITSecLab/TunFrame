@@ -1,0 +1,5 @@
+torch==2.6.0
+xgboost==3.4.1
+scapy
+scikit-learn
+numpy
