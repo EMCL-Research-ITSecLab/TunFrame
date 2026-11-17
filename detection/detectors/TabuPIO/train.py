@@ -195,6 +195,10 @@ def run_paper(directory, output):
         selected_names=[f for f,s in zip(FEATURES,selected) if s],nu_candidates=list(NU_CANDIDATES),
         feature_selection='fixed_published_table6',length_layer='unresolved',
         normalization='fit all paper-training rows once; inference accepts unscaled numeric features',
+        selection_scope='training resubstitution only; held-out metrics do not select the model',
+        estimator_parameters=OneClassSVM(kernel='rbf',gamma='scale').get_params(),
+        paper_reference=dict(doi='10.3390/electronics12061467',feature_subset='Table 6, OC-SVM / PIO-Tabu_Search',
+                             classifier_metrics='Table 8; reported at two decimal places'),
         fit_rows=int((y==0).sum()),training_rows=len(train),
         input_sha256={'train':sha256(train_path),'preprocessing':sha256(prep_path)},
         software={n:importlib.metadata.version(n) for n in ['numpy','scikit-learn','pandas','joblib']},
@@ -211,6 +215,7 @@ def run_paper(directory, output):
     chosen=min(candidates,key=lambda c:(c[0],c[1]))
     if not np.isfinite(chosen[0]):raise ValueError('No finite training-fitness candidate')
     manifest['selected_nu']=chosen[1]
+    manifest['estimator_parameters']=chosen[2].classifier.get_params()
     # Persist the selection before opening the test dataset.
     write_json(output/'manifest.json',manifest)
     artifact=dict(schema_version=1,model=chosen[2],status=manifest['status'],admission=False,
@@ -225,7 +230,9 @@ def run_paper(directory, output):
         results.append(dict(nu=nu,selected=nu==chosen[1],training_seconds=seconds,
             training_fitness=score if np.isfinite(score) else None,
             training_metrics=training_metrics,test_metrics=classification_metrics(yt,predicted)))
-        joblib.dump(dict(artifact,model=model),output/f'model-nu-{nu}.joblib')
+        candidate_manifest={**manifest,'candidate_nu':nu,'selected_candidate':nu==chosen[1],
+                            'estimator_parameters':model.classifier.get_params()}
+        joblib.dump(dict(artifact,model=model,manifest=candidate_manifest),output/f'model-nu-{nu}.joblib')
     manifest['input_sha256']['test']=sha256(test_path)
     manifest['test_rows']=len(test)
     manifest['model_sha256']=sha256(output/'model-0.joblib')
@@ -234,7 +241,11 @@ def run_paper(directory, output):
         raise AssertionError('Saved model predictions differ')
     predictions.to_csv(output/'predictions.csv',index=False)
     write_json(output/'manifest.json',manifest)
-    write_json(output/'results.json',dict(manifest=manifest,candidates=results))
+    write_json(output/'results.json',dict(manifest=manifest,candidates=results,
+        paper_comparison=dict(reported=dict(recall=.99,fpr=0.,accuracy=.99,f1=.99),
+            reproduced=next(r['test_metrics'] for r in results if r['selected']),
+            interpretation='Table 8 classifier comparison only. Published rounded metrics are not used for selection; '
+                           'similar scores do not establish identical training or optimizer reproduction.')))
     print(f'Saved selected nu={chosen[1]} model to {output / "model-0.joblib"}',flush=True)
     return results
 
